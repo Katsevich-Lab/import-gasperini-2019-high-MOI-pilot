@@ -66,5 +66,7 @@ if (!file.exists(paste0(raw_data_dir_gasp, "/", filename))) {
   source <- paste0(remote, filename, ".gz")
   dest <- paste0(raw_data_dir_gasp, "/", filename, ".tar.gz")
   download.file(source, dest)
-  gunzip(paste0(dest))
+  if (!file.exists(sub(".gz$", "", dest))) {
+    gunzip(paste0(dest))
+  }
 }
