@@ -64,9 +64,7 @@ filename <- "all_libraries.gRNAcaptured.aggregated.txt"
 if (!file.exists(paste0(raw_data_dir_gasp, "/", filename))) {
   print(paste0("Downloading ", filename))
   source <- paste0(remote, filename, ".gz")
-  dest <- paste0(raw_data_dir_gasp, "/", filename, ".tar.gz")
+  dest <- paste0(raw_data_dir_gasp, "/", filename, ".gz")
   download.file(source, dest)
-  if (!file.exists(sub(".gz$", "", dest))) {
-    gunzip(paste0(dest))
-  }
+  gunzip(paste0(dest))
 }
