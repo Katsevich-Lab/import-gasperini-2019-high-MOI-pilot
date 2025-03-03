@@ -39,16 +39,10 @@ if (!file.exists(odm_fp)) {
                                                      features_fp = gene_ids_fp, odm_fp = odm_fp,
                                                      metadata_fp = metadata_fp, progress = TRUE)
   
-  # Add p_mito and batch from cell_covariates data frame
-  gasp_cell_covariates <- readRDS(paste0(intermediate_data_dir, "cell_covariates.rds"))
-  gene_odm_plus_pmito_batch <- mutate_cell_covariates(gene_odm, p_mito = gasp_cell_covariates$percent.mito,
-                                                      batch = factor(gasp_cell_covariates$prep_batch))
-  
   # save the metadata (overwriting the original metadata file)
-  save_odm(odm = gene_odm_plus_pmito_batch,
-           metadata_fp = metadata_fp)
+  save_odm(odm = gene_odm, metadata_fp = metadata_fp)
 } else {
-  gene_odm_plus_pmito_batch <- read_odm(odm_fp = odm_fp, metadata_fp = metadata_fp)
+  gene_odm <- read_odm(odm_fp = odm_fp, metadata_fp = metadata_fp)
 }
 
 ###########################
@@ -61,11 +55,11 @@ grna_count_matrix <- readRDS(paste0(intermediate_data_dir, "grna_count_matrix.rd
 grna_feature_covariate_df <-  readRDS(paste0(intermediate_data_dir, "grna_feature_covariates.rds"))
 
 # confirm that (1) cell barcodes of grna exp match those of gene odm, and (2) grna barcodes of grna exp match those of grna_feature_covariate_df
-identical(ondisc:::get_cell_barcodes(gene_odm_plus_pmito_batch), colnames(grna_count_matrix))
-grna_count_matrix <- grna_count_matrix[grna_feature_covariate_df$barcode,]
-identical(grna_feature_covariate_df$barcode, rownames(grna_count_matrix))
+identical(ondisc:::get_cell_barcodes(gene_odm), colnames(grna_count_matrix))
+grna_count_matrix <- grna_count_matrix[unique(grna_feature_covariate_df$barcode),]
+identical(unique(grna_feature_covariate_df$barcode), unique(rownames(grna_count_matrix)))
 cell_barcodes <- colnames(grna_count_matrix)
-features_df <- data.frame(barcode = grna_feature_covariate_df$barcode)
+features_df <- data.frame(barcode = unique(grna_feature_covariate_df$barcode))
 
 # create the grna odm
 grna_odm_exp <- ondisc:::create_ondisc_matrix_from_R_matrix(r_matrix = grna_count_matrix,

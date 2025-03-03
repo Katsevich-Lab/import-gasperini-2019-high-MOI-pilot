@@ -12,7 +12,7 @@ library(magrittr)
 monocle_obj <- readRDS(paste0(raw_data_dir, "/GSE120861_pilot_highmoi_screen.cds.rds"))
 cell_metadata <- pData(monocle_obj)
 rm(monocle_obj); gc()
-covariates_cols <- 1:18
+covariates_cols <- 1:14
 cell_covariates <- cell_metadata[,covariates_cols]
 
 # save the cell covariates
@@ -54,7 +54,9 @@ grna_id_to_group_df <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_gr
                                        col_types = "cc", col_names = c("grna_group", "barcode"))
 grna_result_table <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_all_deg_results.pilot.txt"))
 grna_group_to_target_df <- grna_result_table |>
-  dplyr::select(grna_group = gRNA_group, target_site.chr, target_site.start, target_site.stop, target_type = site_type) |>
+  dplyr::select(grna_group = gRNA_group, target_site.chr = chr.targetgene, 
+                target_site.start = start.targetgene, target_site.stop = stop.targetgene, 
+                target_type = site_type) |>
   dplyr::distinct() |>
   dplyr::mutate(target = paste0(target_site.chr, ":", target_site.start, "-", target_site.stop),
                 target_site.chr  = NULL, target_site.start = NULL, target_site.stop = NULL) |>
