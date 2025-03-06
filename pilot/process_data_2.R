@@ -12,60 +12,57 @@ library(magrittr)
 monocle_obj <- readRDS(paste0(raw_data_dir, "/GSE120861_pilot_highmoi_screen.cds.rds"))
 cell_metadata <- pData(monocle_obj)
 rm(monocle_obj); gc()
-covariates_cols <- 1:14
-cell_covariates <- cell_metadata[,covariates_cols]
 
 # save the cell covariates
+covariates_cols <- 1:14
+cell_covariates <- cell_metadata[, covariates_cols]
 saveRDS(cell_covariates, paste0(intermediate_data_dir, "cell_covariates.rds"))
 
-# load the grna "groups" from high MOI pilot study and grna count matrix
-cell_barcodes_in_use_long <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_pilot_highmoi_screen.cells.txt"),
+# load the grna and cell barcodes information
+cell_barcodes_in_use <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_pilot_highmoi_screen.cells.txt"),
                                         col_names = FALSE, col_types = "c") %>% dplyr::pull()
-# all cell barcodes have 32 characters; strip the last 9
-cell_barcodes_in_use <- gsub('.{9}$', '', cell_barcodes_in_use_long)
+
 grna_barcodes_in_use <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_grna_groups.pilot.txt"),
                                         col_names = c("group_name", "grna_barcode"), col_types = "cc")
 
-grna_counts <- readr::read_tsv(paste0(raw_data_dir, "all_libraries.gRNAcaptured.aggregated.txt"),
-                               col_names = TRUE,
-                               col_types = "cccc") %>% dplyr::rename(cell_barcode = cell, grna_barcode = barcode)
-# keep rows with cells in use, grna barcode in use, and nonzero UMI counts
-grna_counts_sub <- grna_counts %>% dplyr::filter(umi_count > 0,
-                                                 cell_barcode %in% cell_barcodes_in_use,
-                                                 grna_barcode %in% grna_barcodes_in_use$grna_barcode)
-# assign integer labels to the cell_barcodes and grna_barcodes
-cell_idxs <- match(x = grna_counts_sub$cell_barcode, table = cell_barcodes_in_use)
-grna_idxs <- match(x = grna_counts_sub$grna_barcode, table = grna_barcodes_in_use$grna_barcode)
+# obtain the grna assignment matrix
+# Split the strings by "_"
+split_data <- strsplit(cell_metadata$barcode, "_")
+names(split_data) <- rownames(cell_metadata)
 
-m <- Matrix::sparseMatrix(i = grna_idxs,
-                          j = cell_idxs,
-                          x = as.integer(grna_counts_sub$umi_count),
-                          dims = c(length(unique(grna_barcodes_in_use$grna_barcode)), length(unique(cell_barcodes_in_use))),
-                          repr = "T")
-row.names(m) <- grna_barcodes_in_use$grna_barcode
-colnames(m) <- cell_barcodes_in_use_long
+# Create an empty sparse matrix (letters as rows, original rows as columns)
+grna_assignment <- Matrix(0, nrow = length(unique(grna_barcodes_in_use$grna_barcode)), 
+                          ncol = length(unique(cell_barcodes_in_use)), sparse = TRUE)
+
+# Assign row names (letters)
+rownames(grna_assignment) <- unique(grna_barcodes_in_use$grna_barcode)
+colnames(grna_assignment) <- cell_barcodes_in_use
+
+# Fill the matrix: Set 1 where the letter appears in the corresponding column
+for (cell_id in colnames(grna_assignment)) {
+  if(any(is.na(split_data[[cell_id]]))){
+    grna_assignment[, cell_id] <- 0
+  }else{
+    grna_assignment[split_data[[cell_id]], cell_id] <- 1
+  }
+}
 
 # save the count matrix to the intermediate file directory
-saveRDS(object = m, file = paste0(intermediate_data_dir, "grna_count_matrix.rds"))
-rm(grna_counts, grna_counts_sub)
+saveRDS(object = grna_assignment, file = paste0(intermediate_data_dir, "grna_assignment_matrix.rds"))
+rm(grna_assignment)
 
 # create the data frame of grna feature covariates
 grna_id_to_group_df <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_grna_groups.pilot.txt"),
                                        col_types = "cc", col_names = c("grna_group", "barcode"))
 grna_result_table <- readr::read_tsv(file = paste0(raw_data_dir, "GSE120861_all_deg_results.pilot.txt"))
 grna_group_to_target_df <- grna_result_table |>
-  dplyr::select(grna_group = gRNA_group, target_site.chr = chr.targetgene, 
-                target_site.start = start.targetgene, target_site.stop = stop.targetgene, 
-                target_type = site_type) |>
+  dplyr::select(grna_group = gRNA_group, target_type = site_type) |>
   dplyr::distinct() |>
-  dplyr::mutate(target = paste0(target_site.chr, ":", target_site.start, "-", target_site.stop),
-                target_site.chr  = NULL, target_site.start = NULL, target_site.stop = NULL) |>
   dplyr::filter(target_type != "TSS") |>
   dplyr::mutate(target_type = forcats::fct_recode(target_type, gene_tss = "selfTSS",
                                                   candidate_enhancer = "DHS",
                                                   known_enhancer = "positive_ctrl",
-                                                  "non-targeting" = "NTC"),
-                target = ifelse(target_type != "non-targeting", target, "non-targeting"))
+                                                  "non-targeting" = "NTC"))
 pos_control_grna_group_to_target_gene_df <- grna_result_table |>
   dplyr::filter(site_type == "selfTSS") |>
   dplyr::pull(pairs4merge) |>

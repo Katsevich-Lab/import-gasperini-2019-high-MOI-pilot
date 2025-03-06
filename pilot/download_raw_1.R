@@ -57,18 +57,6 @@ for (filename in filenames) {
   }
 }
 
-# Download supplementary Table S2 from Cell
+# Download supplementary Table S1 from Cell (for some reason, one needs to download the table manually from the website)
 supplementary_table_file <- "https://www.cell.com/cms/10.1016/j.cell.2018.11.029/attachment/4cdead8a-c4e0-4630-adce-58f243586a92/mmc1.xlsx"
 download.file(supplementary_table_file, paste0(raw_data_dir_gasp, "/Gasperini_TableS1.xlsx"))
-
-# Download the gRNA counts
-remote <- "https://krishna.gs.washington.edu/content/members/ajh24/crispr_qtl_data_requests/data/"
-filename <- "all_libraries.gRNAcaptured.aggregated.txt"
-
-if (!file.exists(paste0(raw_data_dir_gasp, "/", filename))) {
-  print(paste0("Downloading ", filename))
-  source <- paste0(remote, filename, ".gz")
-  dest <- paste0(raw_data_dir_gasp, "/", filename, ".gz")
-  download.file(source, dest)
-  gunzip(paste0(dest))
-}
